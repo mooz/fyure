@@ -35,7 +35,7 @@
 ;; Variables
 ;; ------------------------------------------------------------ ;;
 
-;; Commands
+;; fyure.py
 
 (defvar fyure:source-directory (if load-file-name
                                    (file-name-directory load-file-name)
@@ -43,9 +43,20 @@
 
 (defvar fyure:python-executable "python")
 
-(defvar fyure:checker-command
-  (list fyure:python-executable
-        (concat fyure:source-directory "fyure.py")))
+(defvar fyure:mecab-dictionary-path nil "Path to the mecab dict")
+
+(defvar fyure:custom-checker-command nil "List that indictes custom checker command (program arg1 arg2 ...)")
+
+(defmacro* fyure:build-checker-command (&optional (args (list fyure:mecab-dictionary-path)))
+  `(or fyure:custom-checker-command
+       (append (list fyure:python-executable
+                     (concat fyure:source-directory "fyure.py"))
+               ,@args)))
+
+;; Custom
+
+(defvar fyure:follow-mode t
+  "When this value is t, enable `helm-follow-mode' by default.")
 
 ;; Keymap
 
@@ -75,6 +86,10 @@ The \"bindings\" in this map are not commands; they are answers.
 The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
 `automatic', and `exit-prefix'.")
 
+;; Face
+
+(defvar fyure:highlight-face 'query-replace)
+
 ;; ------------------------------------------------------------ ;;
 ;; Helper
 ;; ------------------------------------------------------------ ;;
@@ -89,21 +104,57 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
          (with-current-buffer original-buffer
            ,@body)))))
 
-(defmacro fyure:highlight-overlay (overlay-variable begin end)
-  `(if ,overlay-variable
-       (move-overlay ,overlay-variable ,begin ,end)
-     ;; Create highlight
-     (setq ,overlay-variable (make-overlay ,begin ,end))
-     (overlay-put ,overlay-variable 'priority 1001)
-     (overlay-put ,overlay-variable 'face 'query-replace)))
+(defun fyure:helm-after-initialization ()
+  (defvar helm-buffer)
+  (defvar helm-follow-mode)
+  (with-current-buffer helm-buffer
+    (setq helm-follow-mode fyure:follow-mode)))
 
-(defmacro fyure:helm-or-anything (&rest args)
+(defun fyure:anything-after-initialization ()
+  (defvar anything-buffer)
+  (defvar anything-follow-mode)
+  (with-current-buffer anything-buffer
+    (setq anything-follow-mode fyure:follow-mode)))
+
+(defmacro fyure:helm (&rest args)
   `(cond ((and (featurep 'helm) (fboundp 'helm))
-          (helm ,@args))
+          (unwind-protect (progn
+                            (add-hook 'helm-after-initialize-hook 'fyure:helm-after-initialization t)
+                            (helm ,@args))
+            (remove-hook 'helm-after-initialize-hook 'fyure:helm-after-initialization)))
          ((and (featurep 'anything) (fboundp 'anything))
-          (anything ,@args))
+          (unwind-protect (progn
+                            (add-hook 'anything-after-initialize-hook 'fyure:anything-after-initialization t)
+                            (anything ,@args))
+            (remove-hook 'anything-after-initialize-hook 'fyure:anything-after-initialization)))
          (t
           (error "Neither `helm' nor `anything' found (required for fyure.el)"))))
+
+;; ------------------------------------------------------------ ;;
+;; Highlighting
+;; ------------------------------------------------------------ ;;
+
+(defsubst fyure:highlight-overlay (begin end &optional overlay-variable face)
+  (if overlay-variable
+      (move-overlay overlay-variable begin end) ; reuse
+    ;; create
+    (setq overlay-variable (make-overlay begin end))
+    (overlay-put overlay-variable 'face (if face (quote face) fyure:highlight-face)))
+  overlay-variable)
+
+(defvar fyure:highlights nil)
+
+(defun fyure:push-highlight (begin end &optional face)
+  (push (fyure:highlight-overlay begin end)
+        fyure:highlights))
+
+(defun fyure:pop-highlight ()
+  (pop fyure:highlights))
+
+(defun fyure:clear-highlights ()
+  (loop for highlight in fyure:highlights
+        do (when (overlayp highlight) (delete-overlay highlight)))
+  (setq fyure:highlights nil))
 
 ;; ------------------------------------------------------------ ;;
 ;; Query-replace like replacing mechanism
@@ -114,8 +165,8 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
   (goto-char from-string-begin)
   (insert replacement))
 
-(defsubst fyure:byte-to-position (buffer byte)
-  (with-current-buffer buffer
+(defsubst fyure:byte-to-position (byte &optional buffer)
+  (with-current-buffer (or buffer (current-buffer))
     (byte-to-position (1+ byte))))
 
 (defun fyure:query-replace-position (replacement from-positions)
@@ -124,11 +175,13 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
           (replace-overlay)
           (replacement-length (length replacement))
           (automatic-mode)
-          (number-of-replace 0))
+          (number-of-replace 0)
+          (exit-flag))
       (unwind-protect
           (loop named asking-loop for (from-byte . to-byte) in from-positions
-                do (let* ((from-position (fyure:byte-to-position untouched-buffer from-byte))
-                          (to-position (fyure:byte-to-position untouched-buffer to-byte))
+                unless exit-flag
+                do (let* ((from-position (fyure:byte-to-position from-byte untouched-buffer))
+                          (to-position (fyure:byte-to-position to-byte untouched-buffer))
                           (from-string-length (- to-position from-position))
                           (from-string-begin (+ from-position offset))
                           (from-string-end (+ to-position offset))
@@ -136,15 +189,17 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
                      (if automatic-mode
                          (setq command 'act)
                        ;; Ask command
-                       (fyure:highlight-overlay replace-overlay from-string-begin from-string-end)
+                       (setq replace-overlay
+                             (fyure:highlight-overlay from-string-begin from-string-end replace-overlay))
                        (goto-char from-string-begin)
                        (message "fyure: Replace `%s' => `%s'?"
                                 (buffer-substring from-string-begin
                                                   from-string-end)
                                 replacement)
-                       (setq command (lookup-key fyure:ask-command-map
-                                                 (vector (read-event)))))
-                     ;; Automatic -> Act
+                       (setq command (or (lookup-key fyure:ask-command-map
+                                                     (vector (read-event)))
+                                         'exit)))
+                     ;; Command -> Act
                      (when (eq command 'automatic)
                        (setq automatic-mode t)
                        (setq command 'act))
@@ -159,12 +214,11 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
                      ;; Exit?
                      (case command
                        ((exit act-and-exit)
-                        (return-from 'asking-loop)))))
+                        (setq exit-flag t)))))
         ;; Finally, delete highlights
         (when replace-overlay
           (delete-overlay replace-overlay)))
-      (when (> number-of-replace 0)
-        (message "fyure: Replaced %d words" number-of-replace)))))
+      number-of-replace)))
 
 ;; ------------------------------------------------------------ ;;
 ;; fyure.py integration
@@ -172,59 +226,107 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
 
 ;; Target-list handling
 
+(defsubst fyure:get-hyoki-alist-for-target (target result-alist)
+  (assoc-default target result-alist))
+
+(defsubst fyure:get-replacee-positions-for-target (target result-alist &optional except-hyoki)
+  (fyure:collect-replacee-positions (fyure:get-hyoki-alist-for-target target
+                                                                      result-alist)
+                                    except-hyoki))
+
+(defun fyure:highlight-target (target result-alist)
+  (fyure:clear-highlights)
+  (let* ((replacee-positions (fyure:get-replacee-positions-for-target target result-alist))
+         (first-target (car replacee-positions))
+         (first-target-begin (fyure:byte-to-position (car first-target)))
+         (first-target-end (fyure:byte-to-position (cdr first-target))))
+    (goto-char first-target-begin)
+    (fyure:push-highlight first-target-begin first-target-end)))
+
+(defun fyure:decorate-target (target hyoki-alist)
+  (format "%s\n   %s"
+          target
+          (mapconcat 'identity (fyure:get-hyoki-list hyoki-alist) ", ")))
+
+(defun fyure:undecorate-target (decorated-target)
+  (nth 0 (split-string decorated-target "\n")))
+
 (defun fyure:get-candidates-list-from-result-alist (result-alist)
-  (loop for (key . hyoki-alist) in result-alist
-        collect (format "%s\n   %s"
-                        key
-                        (mapconcat 'identity (fyure:get-hyoki-list hyoki-alist) ", "))))
+  (let ((results (loop for (target . hyoki-alist) in result-alist
+                       collect (fyure:decorate-target target hyoki-alist))))
+    results))
 
 (defun fyure:select-target (result-alist next)
-  (fyure:helm-or-anything
+  (fyure:helm
    :sources
    '((name . "Select target word-group")
+     (persistent-action . (lambda (decorated-target)
+                            (fyure:highlight-target (fyure:undecorate-target decorated-target)
+                                                    result-alist)))
+     (cleanup . fyure:clear-highlights)
      (candidates . (lambda () (fyure:get-candidates-list-from-result-alist result-alist)))
      (multiline)
-     (display-to-real . (lambda (target-verbose) (nth 0 (split-string target-verbose "\n"))))
+     (display-to-real . (lambda (decorated-target) (fyure:undecorate-target decorated-target)))
      (action . (("Select hyoki for the target-group" . (lambda (target) (funcall next target))))))))
 
 ;; Hyoki-list handling
+
+(defun fyure:highlight-hyoki (hyoki hyoki-alist)
+  (fyure:clear-highlights)
+  (let* ((replacee-positions (assoc-default hyoki hyoki-alist))
+         (first-target (car replacee-positions))
+         (first-target-begin (fyure:byte-to-position (car first-target)))
+         (first-target-end (fyure:byte-to-position (cdr first-target))))
+    (goto-char first-target-begin)
+    (fyure:push-highlight first-target-begin first-target-end)))
+
+(defun fyure:decorate-hyoki (hyoki positions)
+  (format "%s(%d)" hyoki (length positions)))
+
+(defun fyure:undecorate-hyoki (decorated-hyoki)
+  (nth 0 (split-string decorated-hyoki "(")))
 
 (defun fyure:get-hyoki-list (hyoki-alist)
   (setq hyoki-alist
         (sort (copy-sequence hyoki-alist)
               (lambda (a b) (> (length (cdr a)) (length (cdr b))))))
   (loop for (hyoki . positions) in hyoki-alist
-        collect (format "%s(%d)" hyoki (length positions))))
+        collect (fyure:decorate-hyoki hyoki positions)))
 
-(defun fyure:select-preferred-hyoki-for-target (result-alist target-name next)
-  (let ((hyoki-alist (cdr (assoc target-name result-alist))))
+(defun fyure:select-preferred-hyoki-for-target (result-alist target next)
+  (let ((hyoki-alist (fyure:get-hyoki-alist-for-target target result-alist)))
     (when hyoki-alist
-      (fyure:helm-or-anything
+      (fyure:helm
        :sources
        '((name . "Select preferred hyoki")
+         (persistent-action . (lambda (decorated-hyoki)
+                                (fyure:highlight-hyoki (fyure:undecorate-hyoki decorated-hyoki)
+                                                       hyoki-alist)))
+         (cleanup . fyure:clear-highlights)
          (candidates . (lambda () (fyure:get-hyoki-list hyoki-alist)))
-         (display-to-real . (lambda (hyoki-verbose) (nth 0 (split-string hyoki-verbose "("))))
+         (display-to-real . (lambda (decorated-hyoki) (fyure:undecorate-hyoki decorated-hyoki)))
          (action . (("Fix occurrence" . (lambda (selected) (funcall next selected hyoki-alist))))))))))
 
 ;; Python command invocation
 
 (defun fyure:get-result-alist-for-current-buffer ()
-  (read (with-output-to-string
-          (apply 'call-process-region
-                 (append (list (point-min)
-                               (point-max)
-                               (car fyure:checker-command)
-                               nil standard-output nil)
-                         ;; args
-                         (cdr fyure:checker-command))))))
+  (let ((checker-command (fyure:build-checker-command)))
+    (read (with-output-to-string
+            (apply 'call-process-region
+                   (append (list (point-min)
+                                 (point-max)
+                                 (car checker-command)
+                                 nil standard-output nil)
+                           ;; args
+                           (cdr checker-command)))))))
 
 ;; Result formatting
 
-(defun fyure:collect-replacee-positions (preferred-hyoki hyoki-alist)
+(defun fyure:collect-replacee-positions (hyoki-alist &optional except-hyoki)
   "Merge position list and sort"
   (sort
    (loop for (hyoki . positions) in hyoki-alist
-         unless (string= hyoki preferred-hyoki)
+         unless (and except-hyoki (string= hyoki except-hyoki))
          append positions)
    (lambda (a b) (< (car a) (car b)))))
 
@@ -232,20 +334,26 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
 
 (defun fyure:start-fixing ()
   (interactive)
-  (let ((result-alist (fyure:get-result-alist-for-current-buffer)))
+  (let ((result-alist (fyure:get-result-alist-for-current-buffer))
+        (number-of-replace 0))
     (if result-alist
-        (fyure:select-target
-         result-alist
-         (lambda (target)
-           (fyure:select-preferred-hyoki-for-target
-            result-alist
-            target
-            (lambda (preferred-hyoki hyoki-alist)
-              (fyure:query-replace-position preferred-hyoki
-                                            (fyure:collect-replacee-positions preferred-hyoki
-                                                                              hyoki-alist))))))
+        (unwind-protect
+            (fyure:select-target
+             result-alist
+             (lambda (target)
+               (fyure:select-preferred-hyoki-for-target
+                result-alist
+                target
+                (lambda (preferred-hyoki hyoki-alist)
+                  (setq number-of-replace
+                        (fyure:query-replace-position preferred-hyoki
+                                                      (fyure:collect-replacee-positions hyoki-alist
+                                                                                        preferred-hyoki)))))))
+          (fyure:clear-highlights))
       ;; otherwise
-      (message "fyure: No fixing candidates"))))
+      (message "fyure: No fixing candidates"))
+    (when (> number-of-replace 0)
+      (message "fyure: Replaced %d words" number-of-replace))))
 
 (provide 'fyure)
 ;;; fyure.el ends here
