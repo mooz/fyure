@@ -30,7 +30,9 @@ def register_token(grouped_tokens, token, byte_position):
     if not grouped_tokens[token_kind].has_key(hyoki):
         grouped_tokens[token_kind][hyoki] = [] # [(byte_start, byte_end), (byte_start, byte_end), ...]
 
-    grouped_tokens[token_kind][hyoki].append((byte_position, byte_position + token.length))
+    token_end_byte = byte_position + token.rlength
+    token_begin_byte = token_end_byte - token.length
+    grouped_tokens[token_kind][hyoki].append((token_begin_byte, token_end_byte))
 
 def compute_grouped_tokens(string):
     grouped_tokens = {}
