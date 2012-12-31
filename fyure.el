@@ -290,7 +290,7 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
      (candidates . (lambda () (fyure:get-candidates-list-from-result-alist result-alist)))
      (multiline)
      (display-to-real . (lambda (decorated-target) (fyure:undecorate-target decorated-target)))
-     (action . (("Select hyoki for the target-group" . (lambda (target) (funcall next target))))))))
+     (action . (lambda (target) (funcall next target))))))
 
 ;; Hyoki-list handling
 
@@ -321,14 +321,14 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
     (when hyoki-alist
       (fyure:helm
        :sources
-       '((name . "Select preferred hyoki")
+       '((name . "Select preferred representation")
          (persistent-action . (lambda (decorated-hyoki)
                                 (fyure:highlight-hyoki (fyure:undecorate-hyoki decorated-hyoki)
                                                        hyoki-alist)))
          (cleanup . fyure:clear-highlights)
          (candidates . (lambda () (fyure:get-hyoki-list hyoki-alist)))
          (display-to-real . (lambda (decorated-hyoki) (fyure:undecorate-hyoki decorated-hyoki)))
-         (action . (("Fix occurrence" . (lambda (selected) (funcall next selected hyoki-alist))))))))))
+         (action . (lambda (selected) (funcall next selected hyoki-alist))))))))
 
 ;; Python command invocation
 
