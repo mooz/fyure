@@ -5,7 +5,8 @@ An interface to fix Japanese hyoki-yure for Emacs
 ## Requirements
 
 - MeCab (http://mecab.googlecode.com/svn/trunk/mecab/doc/index.html)
-  - Dictionary: ipadic *utf-8*
+  - *UTF-8* dictionary (nasit-jdic, ipadic, ...)
+  - `nasit-jdic` is recommended (Since it has hyoki-yure information which `ipadic` doesn't have)
 - Python
   - python-mecab
 - Emacs
@@ -41,3 +42,21 @@ In your Emacs, type `M-x fyure:start-fixing` and start fixing. Fixing consists o
 1. Select a target *word-group*.
 2. Select representative *word* for the selected *word-group*.
 3. Replace words in *word-group* with the word selected in *step 2.* in `query-replace` fashion.
+
+## Setup
+
+### Custom dictionary path
+
+Without any settings, fyure.el use system-default mecab dictionary specified in `/etc/mecabrc`. If you prefer custom dictionary in fyure.el, specify the dictionary's path to `fyure:mecab-dictionary-path` as follows.
+
+```lisp
+(setq fyure:mecab-dictionary-path "/usr/lib/mecab/dic/naist-jdic")
+```
+
+### Disable automatic follow-mode
+
+By default, fyure.el automatically enables `helm-follow-mode` (`anything-follow-mode`). If you don't like this behavior, set `nil` to `fyure:follow-mode` as follows.
+
+```lisp
+(setq fyure:follow-mode nil)
+```
