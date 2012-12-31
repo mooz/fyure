@@ -47,11 +47,13 @@
 
 (defvar fyure:custom-checker-command nil "List that indictes custom checker command (program arg1 arg2 ...)")
 
-(defmacro* fyure:build-checker-command (&optional (args (list fyure:mecab-dictionary-path)))
-  `(or fyure:custom-checker-command
-       (append (list fyure:python-executable
-                     (concat fyure:source-directory "fyure.py"))
-               ,@args)))
+(defsubst* fyure:build-checker-command ()
+  (or fyure:custom-checker-command
+      (append (list fyure:python-executable
+                    (concat fyure:source-directory "fyure.py"))
+              (if fyure:mecab-dictionary-path
+                  (list fyure:mecab-dictionary-path)
+                nil))))
 
 ;; Custom
 
