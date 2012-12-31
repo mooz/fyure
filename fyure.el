@@ -207,8 +207,8 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
                                (fyure:highlight-overlay from-string-begin from-string-end replace-overlay))
                          (goto-char from-string-begin)
                          (message "fyure: Replace `%s' => `%s'? [`C-h`, `?', `[f1]` for help]"
-                                  (buffer-substring from-string-begin
-                                                    from-string-end)
+                                  (buffer-substring-no-properties from-string-begin
+                                                                  from-string-end)
                                   replacement)
                          (setq command (or (lookup-key fyure:ask-command-map
                                                        (vector (read-event)))
