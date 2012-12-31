@@ -4,8 +4,7 @@
 import MeCab
 import sys
 
-# TODO: allow users to specify dictionary path
-def mecab_parse(text, mecab = MeCab.Tagger("-Ochasen")):
+def mecab_parse(text, mecab):
     token_node = mecab.parseToNode(text)
     while token_node:
         yield token_node
@@ -19,7 +18,7 @@ def register_token(grouped_tokens, token, byte_position):
     yomi = features[-2]
 
     # skip
-    if hinshi == "記号" or yomi == "*":
+    if hinshi == "記号" or yomi == "*" or yomi == "":
         return
 
     token_kind = (hinshi, yomi)
@@ -34,10 +33,10 @@ def register_token(grouped_tokens, token, byte_position):
     token_begin_byte = token_end_byte - token.length
     grouped_tokens[token_kind][hyoki].append((token_begin_byte, token_end_byte))
 
-def compute_grouped_tokens(string):
+def compute_grouped_tokens(string, mecab):
     grouped_tokens = {}
     byte_position = 0
-    for token in mecab_parse(string):
+    for token in mecab_parse(string, mecab):
         if token.surface:
             register_token(grouped_tokens, token, byte_position)
         byte_position += token.rlength
@@ -57,12 +56,20 @@ def grouped_tokens_to_sexp(grouped_tokens):
     sexp += ")"
     return sexp
 
-if __name__ == "__main__":
-    grouped_tokens = compute_grouped_tokens(sys.stdin.read())
+def print_candidates(input_stream = sys.stdin, output_stream = sys.stdout):
+    mecab_arg = ""
+    if len(sys.argv) > 1:
+        mecab_arg += "-d " + sys.argv[1]
+    mecab = MeCab.Tagger(mecab_arg)
+
+    grouped_tokens = compute_grouped_tokens(input_stream.read(), mecab)
 
     duplicated_grouped_tokens = {}
     for key, same_kind_hyoki_container in grouped_tokens.iteritems():
         if len(same_kind_hyoki_container) >= 2:
             duplicated_grouped_tokens[key] = same_kind_hyoki_container
 
-    print grouped_tokens_to_sexp(duplicated_grouped_tokens)
+    output_stream.write(grouped_tokens_to_sexp(duplicated_grouped_tokens))
+
+if __name__ == "__main__":
+    print_candidates()
