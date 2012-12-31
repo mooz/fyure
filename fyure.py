@@ -4,6 +4,8 @@
 import MeCab
 import sys
 
+# Inspired by http://d.hatena.ne.jp/cou929_la/20120917/1347860517
+
 def mecab_parse(text, mecab):
     token_node = mecab.parseToNode(text)
     while token_node:
