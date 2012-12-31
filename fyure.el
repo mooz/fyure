@@ -60,6 +60,13 @@
 
 ;; Keymap
 
+(defconst fyure:ask-mode-help
+  "Type Space or `y' to replace one match, Delete or `n' to skip to next,
+RET or `q' to exit, Period to replace one match and exit,
+C-l to clear the screen, redisplay, and offer same replacement again,
+! to replace all remaining matches with no more questions"
+  "Help message while in `query-replace'.")
+
 (defvar fyure:ask-command-map
   (let ((map (make-sparse-keymap)))
     (define-key map " " 'act)
@@ -76,6 +83,10 @@
     (define-key map "." 'act-and-exit)
     (define-key map "\C-l" 'recenter)
     (define-key map "!" 'automatic)
+    (define-key map "\C-h" 'help)
+    (define-key map [f1] 'help)
+    (define-key map [help] 'help)
+    (define-key map "?" 'help)
     (define-key map "\C-g" 'quit)
     (define-key map "\C-]" 'quit)
     (define-key map "\e" 'exit-prefix)
@@ -185,36 +196,48 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
                           (from-string-length (- to-position from-position))
                           (from-string-begin (+ from-position offset))
                           (from-string-end (+ to-position offset))
-                          (command))
-                     (if automatic-mode
-                         (setq command 'act)
-                       ;; Ask command
-                       (setq replace-overlay
-                             (fyure:highlight-overlay from-string-begin from-string-end replace-overlay))
-                       (goto-char from-string-begin)
-                       (message "fyure: Replace `%s' => `%s'?"
-                                (buffer-substring from-string-begin
-                                                  from-string-end)
-                                replacement)
-                       (setq command (or (lookup-key fyure:ask-command-map
-                                                     (vector (read-event)))
-                                         'exit)))
-                     ;; Command -> Act
-                     (when (eq command 'automatic)
-                       (setq automatic-mode t)
-                       (setq command 'act))
-                     ;; Command specific deeds
-                     (case command
-                       ((act act-and-exit)
-                        (fyure:do-replace replacement from-string-begin from-string-end)
-                        (setq offset (+ offset (- replacement-length from-string-length)))
-                        (setq number-of-replace (1+ number-of-replace)))
-                       ('recenter
-                        (recenter nil)))
-                     ;; Exit?
-                     (case command
-                       ((exit act-and-exit)
-                        (setq exit-flag t)))))
+                          (command)
+                          (end-ask-loop))
+                     (while (not end-ask-loop)
+                       (setq end-ask-loop t)
+                       (if automatic-mode
+                           (setq command 'act)
+                         ;; Ask command
+                         (setq replace-overlay
+                               (fyure:highlight-overlay from-string-begin from-string-end replace-overlay))
+                         (goto-char from-string-begin)
+                         (message "fyure: Replace `%s' => `%s'? [`C-h`, `?', `[f1]` for help]"
+                                  (buffer-substring from-string-begin
+                                                    from-string-end)
+                                  replacement)
+                         (setq command (or (lookup-key fyure:ask-command-map
+                                                       (vector (read-event)))
+                                           'exit)))
+                       ;; Command -> Act
+                       (when (eq command 'automatic)
+                         (setq automatic-mode t)
+                         (setq command 'act))
+                       ;; Command specific deeds
+                       (case command
+                         ;; Act
+                         ((act act-and-exit)
+                          (fyure:do-replace replacement from-string-begin from-string-end)
+                          (setq offset (+ offset (- replacement-length from-string-length)))
+                          (setq number-of-replace (1+ number-of-replace)))
+                         ;; Recenter
+                         ('recenter
+                          (setq end-ask-loop nil)
+                          (recenter nil))
+                         ;; Help
+                         ('help
+                          (setq end-ask-loop nil)
+                          (with-output-to-temp-buffer "*Help*"
+                            (princ (substitute-command-keys fyure:ask-mode-help))
+                            (with-current-buffer standard-output (help-mode)))))
+                       ;; Exit?
+                       (case command
+                         ((exit act-and-exit)
+                          (setq exit-flag t))))))
         ;; Finally, delete highlights
         (when replace-overlay
           (delete-overlay replace-overlay)))
