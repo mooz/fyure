@@ -65,7 +65,6 @@
     (define-key map "." 'act-and-exit)
     (define-key map "\C-l" 'recenter)
     (define-key map "!" 'automatic)
-    (define-key map "^" 'backup)
     (define-key map "\C-g" 'quit)
     (define-key map "\C-]" 'quit)
     (define-key map "\e" 'exit-prefix)
@@ -74,7 +73,7 @@
   "Keymap that defines the responses to questions in `fyure:query-replace-position'.
 The \"bindings\" in this map are not commands; they are answers.
 The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
-`automatic', `backup', and `exit-prefix'.")
+`automatic', and `exit-prefix'.")
 
 ;; ------------------------------------------------------------ ;;
 ;; Helper
