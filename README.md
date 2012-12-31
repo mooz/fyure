@@ -5,8 +5,8 @@ An interface to fix Japanese hyoki-yure for Emacs
 ## Requirements
 
 - MeCab (http://mecab.googlecode.com/svn/trunk/mecab/doc/index.html)
-  - *UTF-8* dictionary (nasit-jdic, ipadic, ...)
-  - `nasit-jdic` is recommended (Since it has hyoki-yure information which `ipadic` doesn't have)
+  - Requires **UTF-8** dictionary (naist-jdic, ipadic, ...)
+  - `naist-jdic` is recommended (Since it has hyoki-yure information which `ipadic` doesn't have)
 - Python
   - python-mecab
 - Emacs
