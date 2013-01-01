@@ -6,7 +6,7 @@ An interface to fix Japanese hyoki-yure for Emacs
 
 - MeCab (http://mecab.googlecode.com/svn/trunk/mecab/doc/index.html)
   - Requires **UTF-8** dictionary (naist-jdic, ipadic, ...)
-  - `naist-jdic` is recommended (Since it has hyoki-yure information which `ipadic` doesn't have)
+  - `naist-jdic` is recommended (Since it has hyoki-yure information whereas `ipadic` doesn't have)
 - Python
   - python-mecab
 - Emacs
@@ -20,7 +20,7 @@ First, install required packages via `apt`.
 
     $ sudo apt-get install mecab mecab-ipadic-utf8 python-mecab
 
-If your Emacs don't have either `helm.el` nor `anything.el`, install one of them (instruction is omitted).
+If your Emacs desn't have either `helm.el` or `anything.el`, install one of them.
 
 Then, clone fyure and insall it to your `site-lisp` directory.
 
@@ -37,17 +37,17 @@ Finally, add the following configuration code into your `.emacs` file.
 
 ## Usage
 
-In your Emacs, type `M-x fyure:start-fixing` and start fixing. Fixing consists of the following three steps.
+In your Emacs, type `M-x fyure:start-fixing` and start fixing procedure. Fixing procedure consists of the following three steps.
 
 1. Select a target *word-group*.
-2. Select representative *word* for the selected *word-group*.
-3. Replace words in *word-group* with the word selected in *step 2.* in `query-replace` fashion.
+2. Select representative *word* for the *selected word-group*.
+3. Replace words in the *word-group* with the word selected in *step 2* in `query-replace` fashion.
 
 ## Setup
 
 ### Custom dictionary path
 
-Without any settings, fyure.el use system-default mecab dictionary specified in `/etc/mecabrc`. If you prefer custom dictionary in fyure.el, specify the dictionary's path to `fyure:mecab-dictionary-path` as follows.
+Without any settings, fyure.el uses *system-default mecab dictionary* specified in `/etc/mecabrc`. If you prefer custom dictionary for fyure.el, specify the dictionary's path to `fyure:mecab-dictionary-path` as follows.
 
 ```lisp
 (setq fyure:mecab-dictionary-path "/usr/lib/mecab/dic/naist-jdic")
