@@ -191,7 +191,7 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
           (number-of-replace 0)
           (exit-flag))
       (unwind-protect
-          (loop named asking-loop for (from-byte . to-byte) in from-positions
+          (loop for (from-byte . to-byte) in from-positions
                 unless exit-flag
                 do (let* ((from-position (fyure:byte-to-position from-byte untouched-buffer))
                           (to-position (fyure:byte-to-position to-byte untouched-buffer))
