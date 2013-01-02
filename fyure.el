@@ -45,7 +45,7 @@
 
 (defvar fyure:mecab-dictionary-path nil "Path to the mecab dict")
 
-(defvar fyure:custom-checker-command nil "List that indictes custom checker command (program arg1 arg2 ...)")
+(defvar fyure:custom-checker-command nil "List that indicates custom checker command (program arg1 arg2 ...)")
 
 (defsubst* fyure:build-checker-command ()
   (or fyure:custom-checker-command
