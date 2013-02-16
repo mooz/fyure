@@ -358,6 +358,7 @@ The valid answers include `act', `skip', `exit', `act-and-exit', `recenter',
 
 ;; Main command
 
+;;;###autoload
 (defun fyure:start-fixing ()
   (interactive)
   (let ((result-alist (fyure:get-result-alist-for-current-buffer))
