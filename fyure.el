@@ -1,8 +1,9 @@
 ;;; fyure.el --- An interface to fix Japanese hyoki-yure
 
-;; Copyright (C) 2012  Masafumi Oyamada
+;; Copyright (C) 2012, 2013  Masafumi Oyamada
 
 ;; Author: Masafumi Oyamada <stillpedant@gmail.com>
+;; Version: 0.0.1
 ;; Keywords: languages
 
 ;; This program is free software; you can redistribute it and/or modify
